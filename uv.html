@@ -114,7 +114,7 @@
   <div class="wrap">
     <header>
       <h1>UV-index (Clear Sky) 07:00–19:00</h1>
-      <span class="tag">Open-Meteo · UV Index Clear Sky</span>
+      <span class="tag">Open-Meteo</span>
       <span class="tag">Ingen molnprognos</span>
     </header>
 
@@ -141,16 +141,19 @@
           <label>
             Sampling (minuter)
             <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
-            <span class="small">Open-Meteo ger timvärden. Här interpolerar vi linjärt till t.ex. 10 min.</span>
+            <span class="small">API:t ger oftast timvärden. Vi interpolerar linjärt till t.ex. 10 min.</span>
           </label>
 
           <div class="small">
             <b>Hur det funkar</b><br/>
-            Vi hämtar <span class="mono">hourly=uv_index_clear_sky</span> från Open-Meteo och sätter
-            <span class="mono">timezone=auto</span> så tiderna kommer i lokal tid för koordinaten.  [oai_citation:1‡Open Meteo](https://open-meteo.com/en/docs)
-            <br/><br/>
-            Kurvan är alltså “klar himmel” från en väder-/strålningsmodell, inte din egen
-            <span class="mono">sin(elev)</span>-approximation.
+            Vi hämtar:
+            <div class="mono" style="margin-top:6px">
+              hourly=uv_index_clear_sky<br/>
+              daily=uv_index_clear_sky_max<br/>
+              timezone=auto
+            </div>
+            <br/>
+            “Max UV” kommer från <span class="mono">daily</span>. “Tid för max” är <b>≈</b> (från kurvan).
           </div>
         </div>
 
@@ -167,8 +170,11 @@
     <section class="panel">
       <div class="pill"><span>Lat / Lon</span><span class="mono" id="latLon">—</span></div>
       <div class="pill" style="margin-top:10px;"><span>Timezone (API)</span><span class="mono" id="tzShow">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Max UV (clear sky)</span><span class="mono" id="maxUv">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Tid för max</span><span class="mono" id="maxTime">—</span></div>
+      <div class="pill" style="margin-top:10px;"><span>Max UV (daily max)</span><span class="mono" id="maxUv">—</span></div>
+      <div class="pill" style="margin-top:10px;"><span>Tid för max (≈)</span><span class="mono" id="maxTime">—</span></div>
+      <div class="small" id="note" style="margin-top:10px; display:none;">
+        Obs: Max UV kommer från daglig max-variabel. Tid för max är approximerad från timkurvan.
+      </div>
     </section>
 
     <section class="panel">
@@ -189,6 +195,7 @@
   const tzShow = el("tzShow");
   const maxUv = el("maxUv");
   const maxTime = el("maxTime");
+  const note = el("note");
   const status = el("status");
 
   const canvas = el("chart");
@@ -215,9 +222,9 @@
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
 
-  // Parse "YYYY-MM-DDTHH:MM" (no timezone) as local time
+  // Open-Meteo returns time strings like "YYYY-MM-DDTHH:MM" in the requested timezone.
+  // We parse into a Date using local clock components; for same-day interpolation this works well.
   function parseLocalIso(isoNoZone){
-    // Safari iOS: "YYYY-MM-DDTHH:MM" is usually OK as local, but we keep it explicit:
     const [datePart, timePart] = isoNoZone.split("T");
     const [y,m,d] = datePart.split("-").map(Number);
     const [hh,mm] = timePart.split(":").map(Number);
@@ -264,7 +271,7 @@
     const xTo = (x) => pad.l + ((x - xMin) / (xMax - xMin)) * pw;
     const yTo = (y) => pad.t + (1 - (y / yMax)) * ph;
 
-    // bands
+    // UV bands
     drawUvBands(pad, pw, ph, yMax);
 
     // grid
@@ -319,7 +326,6 @@
   }
 
   function linearInterpAt(tMs, xsMs, ys){
-    // xsMs must be sorted
     if (tMs <= xsMs[0]) return ys[0];
     const last = xsMs.length - 1;
     if (tMs >= xsMs[last]) return ys[last];
@@ -341,11 +347,11 @@
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lon));
     url.searchParams.set("hourly", "uv_index_clear_sky");
+    url.searchParams.set("daily", "uv_index_clear_sky_max");
     url.searchParams.set("timezone", "auto");
     url.searchParams.set("start_date", ymd);
     url.searchParams.set("end_date", ymd);
 
-    // abort previous request if any
     if (inflight) inflight.abort();
     inflight = new AbortController();
 
@@ -355,15 +361,17 @@
 
     const tzName = data.timezone || "—";
     const times = data?.hourly?.time;
-    const uvs = data?.hourly?.uv_index_clear_sky;
+    const hourlyUv = data?.hourly?.uv_index_clear_sky;
 
-    if (!Array.isArray(times) || !Array.isArray(uvs) || times.length !== uvs.length) {
-      throw new Error("Ovväntat svarformat från Open-Meteo.");
+    const dailyMaxArr = data?.daily?.uv_index_clear_sky_max;
+    const dailyMax = Array.isArray(dailyMaxArr) ? dailyMaxArr[0] : null;
+
+    if (!Array.isArray(times) || !Array.isArray(hourlyUv) || times.length !== hourlyUv.length) {
+      throw new Error("Ovväntat svarformat från Open-Meteo (hourly).");
     }
 
-    // Convert to ms
     const xsMs = times.map(parseLocalIso).map(d => d.getTime());
-    return { xsMs, uvs, tzName };
+    return { xsMs, hourlyUv, tzName, dailyMax };
   }
 
   async function redraw(){
@@ -376,9 +384,10 @@
 
       setStatus("Hämtar Open-Meteo (uv_index_clear_sky)…");
 
-      const { xsMs, uvs, tzName } = await fetchOpenMeteoUvClearSky(state.lat, state.lon, ymd);
+      const { xsMs, hourlyUv, tzName, dailyMax } =
+        await fetchOpenMeteoUvClearSky(state.lat, state.lon, ymd);
 
-      // Build sampling timeline 07:00–19:00 local day (same local zone as the API timestamps)
+      // Build sampling timeline 07:00–19:00 (clock time)
       const [yy, mm, dd] = ymd.split("-").map(Number);
       const start = new Date(yy, mm-1, dd, START_H, 0, 0, 0).getTime();
       const end   = new Date(yy, mm-1, dd, END_H,   0, 0, 0).getTime();
@@ -389,28 +398,30 @@
       for (let t = start; t <= end; t += step * 60000) {
         const d = new Date(t);
         const h = d.getHours() + d.getMinutes()/60;
-        const uv = linearInterpAt(t, xsMs, uvs);
+        const uv = linearInterpAt(t, xsMs, hourlyUv);
         timesH.push(h);
         values.push(Math.max(0, uv));
       }
 
-      // max
-      let maxV = -1, maxIdx = 0;
+      // Curve max (for approx time-of-max)
+      let curveMax = -1, maxIdx = 0;
       for (let i=0;i<values.length;i++){
-        if (values[i] > maxV) { maxV = values[i]; maxIdx = i; }
+        if (values[i] > curveMax) { curveMax = values[i]; maxIdx = i; }
       }
 
       // UI
       latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
       tzShow.textContent = tzName;
-      maxUv.textContent = maxV.toFixed(1);
+
+      const hasDailyMax = (typeof dailyMax === "number" && Number.isFinite(dailyMax));
+      maxUv.textContent = (hasDailyMax ? dailyMax : curveMax).toFixed(1);
       maxTime.textContent = fmtTime(timesH[maxIdx]);
+      note.style.display = hasDailyMax ? "" : "none";
 
       drawChart(timesH, values);
-
       setStatus(`Ritad (${step} min).`);
     } catch (e) {
-      if (e?.name === "AbortError") return; // user retriggered quickly
+      if (e?.name === "AbortError") return;
       setStatus(e.message || String(e), true);
     }
   }
