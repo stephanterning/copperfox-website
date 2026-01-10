@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Klar-himmel UV (GPS) 07–19</title>
+  <title>UV-index (Clear Sky) 07–19</title>
   <style>
     :root{
       --bg:#0b0f14; --text:#e7eef7; --muted:#a9b7c6;
       --border:rgba(255,255,255,.09); --accent:#56b6c2; --danger:#e06c75;
       --panelA:rgba(255,255,255,.04); --panelB:rgba(255,255,255,.02);
 
-      /* UV band colors (subtle; tuned for dark UI) */
+      /* UV band colors (subtle; dark UI) */
       --uv-low:   rgba(152,195,121,0.10); /* 0-2 */
       --uv-mod:   rgba(229,192,123,0.10); /* 3-5 */
       --uv-high:  rgba(224,108,117,0.10); /* 6-7 */
@@ -42,7 +42,6 @@
       border-radius:10px;border:1px solid var(--border);
       background:rgba(0,0,0,.25);color:var(--text);outline:none
     }
-    input[type="range"]{width:100%}
     .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
     button{
       cursor:pointer; border:1px solid var(--border);
@@ -114,21 +113,22 @@
 <body>
   <div class="wrap">
     <header>
-      <h1>Klar-himmel UV-index (GPS) 07:00–19:00</h1>
-      <span class="tag">Endast solgeometri · ingen molnprognos</span>
+      <h1>UV-index (Clear Sky) 07:00–19:00</h1>
+      <span class="tag">Open-Meteo · UV Index Clear Sky</span>
+      <span class="tag">Ingen molnprognos</span>
     </header>
 
     <section class="panel">
       <div class="row">
         <label>
-          Datum (för din plats)
+          Datum (lokal tid för platsen)
           <input id="dateInput" type="date" />
         </label>
 
         <div style="display:grid;gap:10px">
           <div class="btns" style="margin:0">
             <button class="primary" id="geoBtn">Hämta GPS-position</button>
-            <button id="redrawBtn">Rita om</button>
+            <button id="redrawBtn">Hämta & rita</button>
           </div>
           <div id="status" class="status">Redo. Tryck “Hämta GPS-position”.</div>
         </div>
@@ -141,33 +141,16 @@
           <label>
             Sampling (minuter)
             <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
-            <span class="small">T.ex. 10 min ger en slät kurva utan att bli tungt.</span>
+            <span class="small">Open-Meteo ger timvärden. Här interpolerar vi linjärt till t.ex. 10 min.</span>
           </label>
 
-          <label>
-            K (skalning)
-            <input id="kRange" type="range" min="6" max="16" step="0.1" value="11.0" />
-            <span class="mono" id="kVal">11.0</span>
-          </label>
-
-          <label>
-            n (exponent)
-            <input id="nRange" type="range" min="1.0" max="1.8" step="0.01" value="1.30" />
-            <span class="mono" id="nVal">1.30</span>
-          </label>
-
-          <div>
-            <div class="small" style="margin-top:2px;">
-              <b>Modell</b><br/>
-              <span class="mono">UV = K · sin(elev)^n</span><br/>
-              där <span class="mono">elev</span> är solens höjdvinkel (grader) vid din lat/lon, datum och lokal klocktid.
-              Vi antar klar himmel (inga moln) och använder en enkel solpositions-approximation med “equation of time”.
-              <br/><br/>
-              <b>Hur man använder</b><br/>
-              • <span class="mono">K</span> flyttar upp/ner hela kurvan (kalibrera mot “klar himmel”-känslan).<br/>
-              • <span class="mono">n</span> gör toppen spetsigare (högre n) eller bredare (lägre n).<br/>
-              • Det här är “maximal möjlig UV om solen tittar fram”, inte ett väderjusterat värde.
-            </div>
+          <div class="small">
+            <b>Hur det funkar</b><br/>
+            Vi hämtar <span class="mono">hourly=uv_index_clear_sky</span> från Open-Meteo och sätter
+            <span class="mono">timezone=auto</span> så tiderna kommer i lokal tid för koordinaten.  [oai_citation:1‡Open Meteo](https://open-meteo.com/en/docs)
+            <br/><br/>
+            Kurvan är alltså “klar himmel” från en väder-/strålningsmodell, inte din egen
+            <span class="mono">sin(elev)</span>-approximation.
           </div>
         </div>
 
@@ -183,8 +166,8 @@
 
     <section class="panel">
       <div class="pill"><span>Lat / Lon</span><span class="mono" id="latLon">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>UTC-offset (från din telefon)</span><span class="mono" id="tzShow">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Max UV</span><span class="mono" id="maxUv">—</span></div>
+      <div class="pill" style="margin-top:10px;"><span>Timezone (API)</span><span class="mono" id="tzShow">—</span></div>
+      <div class="pill" style="margin-top:10px;"><span>Max UV (clear sky)</span><span class="mono" id="maxUv">—</span></div>
       <div class="pill" style="margin-top:10px;"><span>Tid för max</span><span class="mono" id="maxTime">—</span></div>
     </section>
 
@@ -195,14 +178,10 @@
 
 <script>
 (() => {
-  // ---- UI ----
   const el = (id) => document.getElementById(id);
+
   const dateInput = el("dateInput");
   const stepInput = el("stepInput");
-  const kRange = el("kRange");
-  const nRange = el("nRange");
-  const kVal = el("kVal");
-  const nVal = el("nVal");
   const geoBtn = el("geoBtn");
   const redrawBtn = el("redrawBtn");
 
@@ -215,126 +194,47 @@
   const canvas = el("chart");
   const ctx = canvas.getContext("2d");
 
-  // ---- Model params ----
   const START_H = 7;
   const END_H = 19;
 
-  let state = {
-    lat: null,
-    lon: null,
-    tz: null // UTC offset in hours from device
-  };
+  let state = { lat: null, lon: null };
+  let inflight = null;
 
   function setStatus(msg, isErr=false){
     status.textContent = msg;
     status.classList.toggle("err", !!isErr);
   }
-
-  function pad2(n){ return String(n).padStart(2, "0"); }
+  function pad2(n){ return String(n).padStart(2,"0"); }
   function fmtTime(hFloat){
     const h = Math.floor(hFloat);
     const m = Math.round((hFloat - h) * 60);
     return `${pad2(h)}:${pad2(m)}`;
   }
-
   function todayLocalYMD(){
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
 
-  function parseYMD(s){
-    const [y,m,d] = s.split("-").map(Number);
-    return {y,m,d};
+  // Parse "YYYY-MM-DDTHH:MM" (no timezone) as local time
+  function parseLocalIso(isoNoZone){
+    // Safari iOS: "YYYY-MM-DDTHH:MM" is usually OK as local, but we keep it explicit:
+    const [datePart, timePart] = isoNoZone.split("T");
+    const [y,m,d] = datePart.split("-").map(Number);
+    const [hh,mm] = timePart.split(":").map(Number);
+    return new Date(y, m-1, d, hh, mm || 0, 0, 0);
   }
 
-  function dayOfYear(y,m,d){
-    const dt = new Date(Date.UTC(y, m-1, d));
-    const start = new Date(Date.UTC(y, 0, 1));
-    return Math.floor((dt - start)/86400000) + 1;
-  }
+  function clamp(x,a,b){ return Math.min(b, Math.max(a, x)); }
 
-  // Solar elevation approximation (fractional year + equation of time)
-  function solarElevationDeg(localClockHours, latDeg, lonDeg, tzHours, y, m, d){
-    const doy = dayOfYear(y,m,d);
-
-    const gamma = 2 * Math.PI / 365 * (doy - 1 + (localClockHours - 12) / 24);
-
-    const decl =
-      0.006918
-      - 0.399912 * Math.cos(gamma)
-      + 0.070257 * Math.sin(gamma)
-      - 0.006758 * Math.cos(2 * gamma)
-      + 0.000907 * Math.sin(2 * gamma)
-      - 0.002697 * Math.cos(3 * gamma)
-      + 0.00148  * Math.sin(3 * gamma);
-
-    const eqtime =
-      229.18 * (
-        0.000075
-        + 0.001868 * Math.cos(gamma)
-        - 0.032077 * Math.sin(gamma)
-        - 0.014615 * Math.cos(2 * gamma)
-        - 0.040849 * Math.sin(2 * gamma)
-      );
-
-    const minutes = localClockHours * 60;
-    const tst = minutes + eqtime + 4 * lonDeg - 60 * tzHours;
-    const haDeg = (tst / 4) - 180;
-    const ha = haDeg * Math.PI / 180;
-
-    const lat = latDeg * Math.PI / 180;
-    const elevRad = Math.asin(
-      Math.sin(lat) * Math.sin(decl) +
-      Math.cos(lat) * Math.cos(decl) * Math.cos(ha)
-    );
-
-    return elevRad * 180 / Math.PI;
-  }
-
-  function uvFromElevation(elevDeg, K, n){
-    if (elevDeg <= 0) return 0;
-    const s = Math.sin(elevDeg * Math.PI / 180);
-    return K * Math.pow(Math.max(0, s), n);
-  }
-
-  function computeSeries(){
-    if (!Number.isFinite(state.lat) || !Number.isFinite(state.lon) || !Number.isFinite(state.tz)) {
-      throw new Error("Ingen GPS-position ännu.");
-    }
-    const {y,m,d} = parseYMD(dateInput.value);
-    const step = Math.max(5, Math.min(60, Number(stepInput.value) || 10));
-    const K = Number(kRange.value);
-    const n = Number(nRange.value);
-
-    const times = [];
-    const values = [];
-
-    for (let t = START_H*60; t <= END_H*60; t += step) {
-      const h = t/60;
-      const elev = solarElevationDeg(h, state.lat, state.lon, state.tz, y, m, d);
-      const uv = uvFromElevation(elev, K, n);
-      times.push(h);
-      values.push(uv);
-    }
-
-    let maxV=-1, idx=0;
-    for (let i=0;i<values.length;i++){
-      if (values[i] > maxV) { maxV = values[i]; idx = i; }
-    }
-    return {times, values, maxV, maxT: times[idx], step, yMaxRaw: Math.max(1, ...values)};
-  }
-
-  // Draw background UV bands (WHO categories)
   function drawUvBands(pad, pw, ph, yMax){
-    // bands: [y0,y1,color]
+    const styles = getComputedStyle(document.documentElement);
     const bands = [
-      [0, 2,  getComputedStyle(document.documentElement).getPropertyValue("--uv-low").trim()],
-      [2, 5,  getComputedStyle(document.documentElement).getPropertyValue("--uv-mod").trim()],
-      [5, 7,  getComputedStyle(document.documentElement).getPropertyValue("--uv-high").trim()],
-      [7, 10, getComputedStyle(document.documentElement).getPropertyValue("--uv-vhigh").trim()],
-      [10, 99, getComputedStyle(document.documentElement).getPropertyValue("--uv-ext").trim()],
+      [0, 2,  styles.getPropertyValue("--uv-low").trim()],
+      [2, 5,  styles.getPropertyValue("--uv-mod").trim()],
+      [5, 7,  styles.getPropertyValue("--uv-high").trim()],
+      [7, 10, styles.getPropertyValue("--uv-vhigh").trim()],
+      [10, 99, styles.getPropertyValue("--uv-ext").trim()],
     ];
-
     const yTo = (y) => pad.t + (1 - (y / yMax)) * ph;
 
     for (const [a,b,color] of bands){
@@ -344,18 +244,12 @@
 
       const top = yTo(y1);
       const bot = yTo(y0);
-      const height = bot - top;
-
       ctx.fillStyle = color;
-      ctx.fillRect(pad.l, top, pw, height);
+      ctx.fillRect(pad.l, top, pw, bot - top);
     }
   }
 
-  function clamp(x,a,b){ return Math.min(b, Math.max(a, x)); }
-
-  function draw(series){
-    const {times, values, yMaxRaw} = series;
-
+  function drawChart(timesH, values){
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0,0,w,h);
 
@@ -363,17 +257,15 @@
     const pw = w - pad.l - pad.r;
     const ph = h - pad.t - pad.b;
 
-    const yMax = Math.ceil(yMaxRaw * 2) / 2; // round to 0.5
-    const xMin = START_H, xMax = END_H;
+    const yMaxRaw = Math.max(1, ...values);
+    const yMax = Math.ceil(yMaxRaw * 2) / 2;
 
+    const xMin = START_H, xMax = END_H;
     const xTo = (x) => pad.l + ((x - xMin) / (xMax - xMin)) * pw;
     const yTo = (y) => pad.t + (1 - (y / yMax)) * ph;
 
-    // UV risk bands
-    ctx.save();
-    ctx.globalAlpha = 1;
+    // bands
     drawUvBands(pad, pw, ph, yMax);
-    ctx.restore();
 
     // grid
     ctx.save();
@@ -401,21 +293,21 @@
     ctx.lineWidth = 3;
     ctx.strokeStyle = "rgba(86,182,194,0.95)";
     ctx.beginPath();
-    for (let i=0;i<times.length;i++){
-      const x = xTo(times[i]);
+    for (let i=0;i<timesH.length;i++){
+      const x = xTo(timesH[i]);
       const y = yTo(values[i]);
       if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
     ctx.stroke();
     ctx.restore();
 
-    // fill under curve
+    // fill
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.fillStyle = "rgba(86,182,194,0.35)";
     ctx.beginPath();
-    for (let i=0;i<times.length;i++){
-      const x = xTo(times[i]);
+    for (let i=0;i<timesH.length;i++){
+      const x = xTo(timesH[i]);
       const y = yTo(values[i]);
       if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
@@ -426,23 +318,99 @@
     ctx.restore();
   }
 
-  function updateSummary(series){
-    latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
-    tzShow.textContent = (state.tz>=0?"+":"") + state.tz;
-    maxUv.textContent = series.maxV.toFixed(1);
-    maxTime.textContent = fmtTime(series.maxT);
+  function linearInterpAt(tMs, xsMs, ys){
+    // xsMs must be sorted
+    if (tMs <= xsMs[0]) return ys[0];
+    const last = xsMs.length - 1;
+    if (tMs >= xsMs[last]) return ys[last];
+
+    // binary search
+    let lo = 0, hi = last;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (xsMs[mid] <= tMs) lo = mid; else hi = mid;
+    }
+    const t0 = xsMs[lo], t1 = xsMs[hi];
+    const y0 = ys[lo], y1 = ys[hi];
+    const f = (tMs - t0) / (t1 - t0);
+    return y0 + f * (y1 - y0);
   }
 
-  function redraw(){
-    try {
-      kVal.textContent = Number(kRange.value).toFixed(1);
-      nVal.textContent = Number(nRange.value).toFixed(2);
+  async function fetchOpenMeteoUvClearSky(lat, lon, ymd){
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set("latitude", String(lat));
+    url.searchParams.set("longitude", String(lon));
+    url.searchParams.set("hourly", "uv_index_clear_sky");
+    url.searchParams.set("timezone", "auto");
+    url.searchParams.set("start_date", ymd);
+    url.searchParams.set("end_date", ymd);
 
-      const series = computeSeries();
-      draw(series);
-      updateSummary(series);
-      setStatus(`Ritad (${series.step} min sampling).`);
+    // abort previous request if any
+    if (inflight) inflight.abort();
+    inflight = new AbortController();
+
+    const res = await fetch(url.toString(), { signal: inflight.signal });
+    if (!res.ok) throw new Error(`Open-Meteo fel: HTTP ${res.status}`);
+    const data = await res.json();
+
+    const tzName = data.timezone || "—";
+    const times = data?.hourly?.time;
+    const uvs = data?.hourly?.uv_index_clear_sky;
+
+    if (!Array.isArray(times) || !Array.isArray(uvs) || times.length !== uvs.length) {
+      throw new Error("Ovväntat svarformat från Open-Meteo.");
+    }
+
+    // Convert to ms
+    const xsMs = times.map(parseLocalIso).map(d => d.getTime());
+    return { xsMs, uvs, tzName };
+  }
+
+  async function redraw(){
+    try {
+      if (!Number.isFinite(state.lat) || !Number.isFinite(state.lon)) {
+        throw new Error("Ingen GPS-position ännu.");
+      }
+      const ymd = dateInput.value;
+      const step = Math.max(5, Math.min(60, Number(stepInput.value) || 10));
+
+      setStatus("Hämtar Open-Meteo (uv_index_clear_sky)…");
+
+      const { xsMs, uvs, tzName } = await fetchOpenMeteoUvClearSky(state.lat, state.lon, ymd);
+
+      // Build sampling timeline 07:00–19:00 local day (same local zone as the API timestamps)
+      const [yy, mm, dd] = ymd.split("-").map(Number);
+      const start = new Date(yy, mm-1, dd, START_H, 0, 0, 0).getTime();
+      const end   = new Date(yy, mm-1, dd, END_H,   0, 0, 0).getTime();
+
+      const timesH = [];
+      const values = [];
+
+      for (let t = start; t <= end; t += step * 60000) {
+        const d = new Date(t);
+        const h = d.getHours() + d.getMinutes()/60;
+        const uv = linearInterpAt(t, xsMs, uvs);
+        timesH.push(h);
+        values.push(Math.max(0, uv));
+      }
+
+      // max
+      let maxV = -1, maxIdx = 0;
+      for (let i=0;i<values.length;i++){
+        if (values[i] > maxV) { maxV = values[i]; maxIdx = i; }
+      }
+
+      // UI
+      latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
+      tzShow.textContent = tzName;
+      maxUv.textContent = maxV.toFixed(1);
+      maxTime.textContent = fmtTime(timesH[maxIdx]);
+
+      drawChart(timesH, values);
+
+      setStatus(`Ritad (${step} min).`);
     } catch (e) {
+      if (e?.name === "AbortError") return; // user retriggered quickly
       setStatus(e.message || String(e), true);
     }
   }
@@ -457,12 +425,6 @@
       (pos) => {
         state.lat = pos.coords.latitude;
         state.lon = pos.coords.longitude;
-
-        // UTC offset from device timezone (hours).
-        // This assumes your device timezone matches your physical location (normally true).
-        state.tz = -new Date().getTimezoneOffset() / 60;
-
-        if (!dateInput.value) dateInput.value = todayLocalYMD();
         redraw();
       },
       (err) => setStatus(`Kunde inte hämta position: ${err.message}`, true),
@@ -470,15 +432,11 @@
     );
   }
 
-  // ---- events ----
   geoBtn.addEventListener("click", requestGeo);
   redrawBtn.addEventListener("click", redraw);
-  [dateInput, stepInput, kRange, nRange].forEach(x => x.addEventListener("input", redraw));
+  [dateInput, stepInput].forEach(x => x.addEventListener("input", redraw));
 
-  // ---- init ----
   dateInput.value = todayLocalYMD();
-  kVal.textContent = Number(kRange.value).toFixed(1);
-  nVal.textContent = Number(nRange.value).toFixed(2);
 })();
 </script>
 </body>
