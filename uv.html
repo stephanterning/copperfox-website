@@ -6,8 +6,16 @@
   <title>Klar-himmel UV (GPS) 07–19</title>
   <style>
     :root{
-      --bg:#0b0f14; --panel:#121923; --text:#e7eef7; --muted:#a9b7c6;
+      --bg:#0b0f14; --text:#e7eef7; --muted:#a9b7c6;
       --border:rgba(255,255,255,.09); --accent:#56b6c2; --danger:#e06c75;
+      --panelA:rgba(255,255,255,.04); --panelB:rgba(255,255,255,.02);
+
+      /* UV band colors (subtle; tuned for dark UI) */
+      --uv-low:   rgba(152,195,121,0.10); /* 0-2 */
+      --uv-mod:   rgba(229,192,123,0.10); /* 3-5 */
+      --uv-high:  rgba(224,108,117,0.10); /* 6-7 */
+      --uv-vhigh: rgba(198,120,221,0.12); /* 8-10 */
+      --uv-ext:   rgba(97,175,239,0.12);  /* 11+ */
     }
     *{box-sizing:border-box}
     body{
@@ -20,8 +28,12 @@
     header{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:baseline}
     h1{font-size:18px;margin:0}
     .tag{font-size:12px;color:var(--muted);border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.03)}
-    .panel{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-      border:1px solid var(--border);border-radius:14px;padding:14px}
+    .panel{
+      background:linear-gradient(180deg, var(--panelA), var(--panelB));
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px
+    }
     .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
     @media (max-width:700px){.row{grid-template-columns:1fr}}
     label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
@@ -41,7 +53,7 @@
     button:hover{background:rgba(255,255,255,.07)}
     button.primary:hover{background:rgba(86,182,194,.18)}
     .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
-    .small{font-size:12px;color:var(--muted);line-height:1.35}
+    .small{font-size:12px;color:var(--muted);line-height:1.4}
     .pill{
       display:flex;justify-content:space-between;gap:10px;align-items:center;
       padding:8px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.03);
@@ -55,6 +67,48 @@
     }
     .status{font-size:12px;color:var(--muted)}
     .status.err{color:var(--danger)}
+
+    details{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      background:rgba(0,0,0,.16);
+      margin-top:12px;
+    }
+    summary{
+      cursor:pointer;
+      color:var(--text);
+      font-weight:700;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    summary::-webkit-details-marker { display:none; }
+    .chev{
+      width:10px;height:10px;display:inline-block;
+      border-right:2px solid rgba(231,238,247,.7);
+      border-bottom:2px solid rgba(231,238,247,.7);
+      transform:rotate(-45deg);
+      margin-top:2px;
+    }
+    details[open] .chev{ transform:rotate(45deg); margin-top:0; }
+    .advGrid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:700px){.advGrid{grid-template-columns:1fr}}
+    .legend{
+      display:flex; flex-wrap:wrap; gap:8px; margin-top:10px
+    }
+    .lg{
+      display:flex; align-items:center; gap:8px;
+      border:1px solid var(--border); background:rgba(255,255,255,.03);
+      padding:6px 10px; border-radius:999px; font-size:12px; color:var(--muted)
+    }
+    .sw{width:10px;height:10px;border-radius:3px; display:inline-block}
   </style>
 </head>
 <body>
@@ -62,7 +116,6 @@
     <header>
       <h1>Klar-himmel UV-index (GPS) 07:00–19:00</h1>
       <span class="tag">Endast solgeometri · ingen molnprognos</span>
-      <span class="tag mono">single-file</span>
     </header>
 
     <section class="panel">
@@ -72,36 +125,60 @@
           <input id="dateInput" type="date" />
         </label>
 
-        <label>
-          Sampling (minuter)
-          <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
-        </label>
+        <div style="display:grid;gap:10px">
+          <div class="btns" style="margin:0">
+            <button class="primary" id="geoBtn">Hämta GPS-position</button>
+            <button id="redrawBtn">Rita om</button>
+          </div>
+          <div id="status" class="status">Redo. Tryck “Hämta GPS-position”.</div>
+        </div>
       </div>
 
-      <div class="row" style="margin-top:10px;">
-        <label>
-          K (skalning)
-          <input id="kRange" type="range" min="6" max="16" step="0.1" value="11.0" />
-          <span class="mono" id="kVal">11.0</span>
-        </label>
+      <details>
+        <summary><span class="chev"></span> Avancerade inställningar</summary>
 
-        <label>
-          n (exponent)
-          <input id="nRange" type="range" min="1.0" max="1.8" step="0.01" value="1.30" />
-          <span class="mono" id="nVal">1.30</span>
-        </label>
-      </div>
+        <div class="advGrid">
+          <label>
+            Sampling (minuter)
+            <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
+            <span class="small">T.ex. 10 min ger en slät kurva utan att bli tungt.</span>
+          </label>
 
-      <div class="btns">
-        <button class="primary" id="geoBtn">Hämta GPS-position</button>
-        <button id="redrawBtn">Rita om</button>
-      </div>
+          <label>
+            K (skalning)
+            <input id="kRange" type="range" min="6" max="16" step="0.1" value="11.0" />
+            <span class="mono" id="kVal">11.0</span>
+          </label>
 
-      <p class="small" style="margin:10px 0 0;">
-        Modell: <span class="mono">UV = K · sin(elev)^n</span>, där <span class="mono">elev</span> är solens höjdvinkel.
-        Det här är “maximal möjlig UV” om solen tittar fram (klar himmel).
-      </p>
-      <div id="status" class="status" style="margin-top:8px;">Redo. Tryck “Hämta GPS-position”.</div>
+          <label>
+            n (exponent)
+            <input id="nRange" type="range" min="1.0" max="1.8" step="0.01" value="1.30" />
+            <span class="mono" id="nVal">1.30</span>
+          </label>
+
+          <div>
+            <div class="small" style="margin-top:2px;">
+              <b>Modell</b><br/>
+              <span class="mono">UV = K · sin(elev)^n</span><br/>
+              där <span class="mono">elev</span> är solens höjdvinkel (grader) vid din lat/lon, datum och lokal klocktid.
+              Vi antar klar himmel (inga moln) och använder en enkel solpositions-approximation med “equation of time”.
+              <br/><br/>
+              <b>Hur man använder</b><br/>
+              • <span class="mono">K</span> flyttar upp/ner hela kurvan (kalibrera mot “klar himmel”-känslan).<br/>
+              • <span class="mono">n</span> gör toppen spetsigare (högre n) eller bredare (lägre n).<br/>
+              • Det här är “maximal möjlig UV om solen tittar fram”, inte ett väderjusterat värde.
+            </div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <div class="lg"><span class="sw" style="background:var(--uv-low)"></span>0–2 Låg</div>
+          <div class="lg"><span class="sw" style="background:var(--uv-mod)"></span>3–5 Måttlig</div>
+          <div class="lg"><span class="sw" style="background:var(--uv-high)"></span>6–7 Hög</div>
+          <div class="lg"><span class="sw" style="background:var(--uv-vhigh)"></span>8–10 Mycket hög</div>
+          <div class="lg"><span class="sw" style="background:var(--uv-ext)"></span>11+ Extrem</div>
+        </div>
+      </details>
     </section>
 
     <section class="panel">
@@ -160,13 +237,11 @@
     return `${pad2(h)}:${pad2(m)}`;
   }
 
-  // today string in user's local timezone
   function todayLocalYMD(){
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
 
-  // Parse yyyy-mm-dd
   function parseYMD(s){
     const [y,m,d] = s.split("-").map(Number);
     return {y,m,d};
@@ -246,11 +321,40 @@
     for (let i=0;i<values.length;i++){
       if (values[i] > maxV) { maxV = values[i]; idx = i; }
     }
-    return {times, values, maxV, maxT: times[idx], step};
+    return {times, values, maxV, maxT: times[idx], step, yMaxRaw: Math.max(1, ...values)};
   }
 
+  // Draw background UV bands (WHO categories)
+  function drawUvBands(pad, pw, ph, yMax){
+    // bands: [y0,y1,color]
+    const bands = [
+      [0, 2,  getComputedStyle(document.documentElement).getPropertyValue("--uv-low").trim()],
+      [2, 5,  getComputedStyle(document.documentElement).getPropertyValue("--uv-mod").trim()],
+      [5, 7,  getComputedStyle(document.documentElement).getPropertyValue("--uv-high").trim()],
+      [7, 10, getComputedStyle(document.documentElement).getPropertyValue("--uv-vhigh").trim()],
+      [10, 99, getComputedStyle(document.documentElement).getPropertyValue("--uv-ext").trim()],
+    ];
+
+    const yTo = (y) => pad.t + (1 - (y / yMax)) * ph;
+
+    for (const [a,b,color] of bands){
+      const y0 = clamp(a, 0, yMax);
+      const y1 = clamp(b, 0, yMax);
+      if (y1 <= 0 || y0 >= yMax) continue;
+
+      const top = yTo(y1);
+      const bot = yTo(y0);
+      const height = bot - top;
+
+      ctx.fillStyle = color;
+      ctx.fillRect(pad.l, top, pw, height);
+    }
+  }
+
+  function clamp(x,a,b){ return Math.min(b, Math.max(a, x)); }
+
   function draw(series){
-    const {times, values} = series;
+    const {times, values, yMaxRaw} = series;
 
     const w = canvas.width, h = canvas.height;
     ctx.clearRect(0,0,w,h);
@@ -259,13 +363,17 @@
     const pw = w - pad.l - pad.r;
     const ph = h - pad.t - pad.b;
 
-    const yMaxRaw = Math.max(1, ...values);
     const yMax = Math.ceil(yMaxRaw * 2) / 2; // round to 0.5
-
     const xMin = START_H, xMax = END_H;
 
     const xTo = (x) => pad.l + ((x - xMin) / (xMax - xMin)) * pw;
     const yTo = (y) => pad.t + (1 - (y / yMax)) * ph;
+
+    // UV risk bands
+    ctx.save();
+    ctx.globalAlpha = 1;
+    drawUvBands(pad, pw, ph, yMax);
+    ctx.restore();
 
     // grid
     ctx.save();
@@ -301,9 +409,9 @@
     ctx.stroke();
     ctx.restore();
 
-    // fill
+    // fill under curve
     ctx.save();
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.22;
     ctx.fillStyle = "rgba(86,182,194,0.35)";
     ctx.beginPath();
     for (let i=0;i<times.length;i++){
@@ -349,8 +457,9 @@
       (pos) => {
         state.lat = pos.coords.latitude;
         state.lon = pos.coords.longitude;
-        // Use device timezone offset (hours). This is correct for the user's current position
-        // as long as device timezone matches the physical location (usually true).
+
+        // UTC offset from device timezone (hours).
+        // This assumes your device timezone matches your physical location (normally true).
         state.tz = -new Date().getTimezoneOffset() / 60;
 
         if (!dateInput.value) dateInput.value = todayLocalYMD();
@@ -361,12 +470,12 @@
     );
   }
 
-  // ---- wire events ----
+  // ---- events ----
   geoBtn.addEventListener("click", requestGeo);
   redrawBtn.addEventListener("click", redraw);
   [dateInput, stepInput, kRange, nRange].forEach(x => x.addEventListener("input", redraw));
 
-  // init
+  // ---- init ----
   dateInput.value = todayLocalYMD();
   kVal.textContent = Number(kRange.value).toFixed(1);
   nVal.textContent = Number(nRange.value).toFixed(2);
