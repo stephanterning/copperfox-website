@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>UV-index (3 kurvor) 07–19</title>
+  <title>UV-index</title>
   <style>
     :root{
       --bg:#0b0f14; --text:#e7eef7; --muted:#a9b7c6;
-      --border:rgba(255,255,255,.09); --danger:#e06c75;
+      --border:rgba(255,255,255,.10); --danger:#e06c75;
       --panelA:rgba(255,255,255,.04); --panelB:rgba(255,255,255,.02);
 
       --uv-low:   rgba(152,195,121,0.10);
@@ -16,110 +16,93 @@
       --uv-vhigh: rgba(198,120,221,0.12);
       --uv-ext:   rgba(97,175,239,0.12);
 
-      --line-clear: rgba(86,182,194,0.95);
-      --line-geo:   rgba(229,192,123,0.95);
-      --line-all:   rgba(224,108,117,0.95);
+      --line-clear: rgba(86,182,194,0.95);   /* Open-Meteo clear sky */
+      --line-geo:   rgba(229,192,123,0.95);  /* geometry */
+      --line-all:   rgba(224,108,117,0.95);  /* Open-Meteo all-sky */
     }
+
     *{box-sizing:border-box}
     body{
-      margin:0; padding:18px;
+      margin:0; padding:16px;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       background: radial-gradient(1200px 600px at 20% 0%, rgba(86,182,194,.18), transparent 60%), var(--bg);
       color:var(--text);
     }
-    .wrap{max-width:980px;margin:0 auto;display:grid;gap:14px}
-    header{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:baseline}
+    .wrap{max-width:980px;margin:0 auto;display:grid;gap:12px}
+
+    /* Top bar */
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:2px;
+    }
     h1{font-size:18px;margin:0}
-    .tag{font-size:12px;color:var(--muted);border:1px solid var(--border);padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.03)}
+
+    /* Panel */
     .panel{
       background:linear-gradient(180deg, var(--panelA), var(--panelB));
       border:1px solid var(--border);
       border-radius:14px;
-      padding:14px
+      padding:14px;
     }
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
-    @media (max-width:700px){.row{grid-template-columns:1fr}}
+
+    /* Inputs */
     label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
-    input[type="date"], input[type="number"]{
-      width:100%; padding:10px;
-      border-radius:10px;border:1px solid var(--border);
-      background:rgba(0,0,0,.25);color:var(--text);outline:none
-    }
-    input[type="range"]{width:100%}
-    .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
-    button{
-      cursor:pointer; border:1px solid var(--border);
-      background:rgba(255,255,255,.04); color:var(--text);
-      padding:10px 12px; border-radius:10px; font-weight:600;
-    }
-    button.primary{border-color:rgba(86,182,194,.55);background:rgba(86,182,194,.12)}
-    button:hover{background:rgba(255,255,255,.07)}
-    button.primary:hover{background:rgba(86,182,194,.18)}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
-    .small{font-size:12px;color:var(--muted);line-height:1.4}
-    .pill{
-      display:flex;justify-content:space-between;gap:10px;align-items:center;
-      padding:8px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.03);
-      font-size:12px;color:var(--muted)
-    }
-    canvas{
-      width:100%; height:390px;
-      background:rgba(0,0,0,.18);
+    input[type="date"], input[type="text"], input[type="number"]{
+      width:100%;
+      padding:10px;
+      border-radius:10px;
       border:1px solid var(--border);
-      border-radius:12px;
-    }
-    .status{font-size:12px;color:var(--muted)}
-    .status.err{color:var(--danger)}
-
-    details{
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:10px 12px;
-      background:rgba(0,0,0,.16);
-      margin-top:12px;
-    }
-    summary{
-      cursor:pointer;
+      background:rgba(0,0,0,.25);
       color:var(--text);
-      font-weight:700;
-      list-style:none;
-      display:flex;
-      align-items:center;
-      gap:10px;
+      outline:none;
     }
-    summary::-webkit-details-marker { display:none; }
-    .chev{
-      width:10px;height:10px;display:inline-block;
-      border-right:2px solid rgba(231,238,247,.7);
-      border-bottom:2px solid rgba(231,238,247,.7);
-      transform:rotate(-45deg);
-      margin-top:2px;
-    }
-    details[open] .chev{ transform:rotate(45deg); margin-top:0; }
 
-    .advGrid{
-      margin-top:12px;
+    .row2{
       display:grid;
       grid-template-columns: 1fr 1fr;
-      gap:12px;
+      gap:10px;
+      align-items:end;
     }
-    @media (max-width:700px){.advGrid{grid-template-columns:1fr}}
+    @media (max-width:700px){ .row2{grid-template-columns:1fr} }
 
-    .legend{
-      display:flex; flex-wrap:wrap; gap:8px; margin-top:10px
+    .placeRow{
+      display:grid;
+      grid-template-columns: 1fr 44px;
+      gap:10px;
+      align-items:end;
     }
-    .lg{
-      display:flex; align-items:center; gap:8px;
-      border:1px solid var(--border); background:rgba(255,255,255,.03);
-      padding:6px 10px; border-radius:999px; font-size:12px; color:var(--muted)
-    }
-    .sw{width:10px;height:10px;border-radius:3px; display:inline-block}
 
+    /* Buttons */
+    button{
+      cursor:pointer;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.04);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:10px;
+      font-weight:700;
+    }
+    button:hover{background:rgba(255,255,255,.07)}
+    button.primary{border-color:rgba(86,182,194,.55);background:rgba(86,182,194,.12)}
+    button.primary:hover{background:rgba(86,182,194,.18)}
+    .iconBtn{
+      display:flex; align-items:center; justify-content:center;
+      padding:10px;
+      height:42px;
+      width:44px;
+      border-radius:10px;
+    }
+    .updateRow{ margin-top:10px; }
+    .status{font-size:12px;color:var(--muted);margin-top:10px}
+    .status.err{color:var(--danger)}
+
+    /* Curve toggles */
     .curveToggles{
       display:flex; flex-wrap:wrap; gap:10px;
-      margin-top:12px;
-      padding-top:12px;
-      border-top:1px dashed rgba(255,255,255,.12);
+      margin-bottom:10px;
     }
     .chk{
       display:flex; align-items:center; gap:8px;
@@ -132,45 +115,187 @@
       user-select:none;
     }
     .chk input{ transform: scale(1.1); }
+    .sw{width:10px;height:10px;border-radius:3px; display:inline-block}
+
+    /* Canvas */
+    canvas{
+      width:100%;
+      height:390px;
+      background:rgba(0,0,0,.18);
+      border:1px solid var(--border);
+      border-radius:12px;
+    }
+
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .small{font-size:12px;color:var(--muted);line-height:1.4}
+
+    /* Details */
+    details{
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      background:rgba(0,0,0,.16);
+    }
+    summary{
+      cursor:pointer;
+      color:var(--text);
+      font-weight:800;
+      list-style:none;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    summary::-webkit-details-marker{ display:none; }
+
+    /* Gear (top right) */
+    .gear details{
+      padding:0;
+      border:none;
+      background:transparent;
+    }
+    .gear summary{
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:rgba(255,255,255,.03);
+      font-weight:800;
+      color:var(--text);
+    }
+    .gearPanel{
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      background:rgba(0,0,0,.18);
+      width:min(520px, 92vw);
+    }
+
+    .advGrid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:700px){.advGrid{grid-template-columns:1fr}}
+
+    input[type="range"]{width:100%}
 
     .pillGrid{
+      margin-top:10px;
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:10px;
-      margin-top:10px;
     }
     @media (max-width:700px){.pillGrid{grid-template-columns:1fr}}
+    .pill{
+      display:flex;justify-content:space-between;gap:10px;align-items:center;
+      padding:8px 10px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.03);
+      font-size:12px;color:var(--muted)
+    }
+
+    .legend{
+      display:flex; flex-wrap:wrap; gap:8px; margin-top:10px
+    }
+    .lg{
+      display:flex; align-items:center; gap:8px;
+      border:1px solid var(--border); background:rgba(255,255,255,.03);
+      padding:6px 10px; border-radius:999px; font-size:12px; color:var(--muted)
+    }
+
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <h1>UV-index 07:00–19:00 (3 kurvor)</h1>
-      <span class="tag">Open-Meteo + geometri</span>
-      <span class="tag">Jämför kurvorna själv</span>
-    </header>
+    <div class="topbar">
+      <h1>UV-index</h1>
+
+      <div class="gear">
+        <details id="advDetails">
+          <summary title="Avancerade inställningar" aria-label="Avancerade inställningar">⚙️</summary>
+          <div class="gearPanel">
+            <div class="small">
+              <b>Kurvorna</b><br/>
+              • <span class="mono">Open-Meteo clear-sky</span> = <span class="mono">uv_index_clear_sky</span><br/>
+              • <span class="mono">Open-Meteo all-sky</span> = <span class="mono">uv_index</span> (moln m.m.)<br/>
+              • <span class="mono">Geometri</span> = <span class="mono">UV = K · sin(elev)^n</span>
+            </div>
+
+            <div class="advGrid">
+              <label>
+                Sampling (minuter)
+                <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
+                <span class="small">API:t är ofta timvärden; vi interpolerar linjärt till detta steg.</span>
+              </label>
+
+              <div class="small">
+                <b>Kalibrering</b><br/>
+                När “K matchar clear-sky max” är på räknar vi ut
+                <span class="mono">scale = clearPeak / geoPeak</span> och använder
+                <span class="mono">K_eff = K · scale</span> <i>endast</i> för geometri-kurvan.
+                Din slider (K) ändras inte.
+              </div>
+
+              <label>
+                Geometri: K
+                <input id="kRange" type="range" min="6" max="18" step="0.1" value="13.0" />
+                <span class="mono" id="kVal">13.0</span>
+              </label>
+
+              <label>
+                Geometri: n
+                <input id="nRange" type="range" min="1.0" max="1.9" step="0.01" value="1.30" />
+                <span class="mono" id="nVal">1.30</span>
+              </label>
+
+              <label style="grid-column:1/-1">
+                <span class="chk" style="border-radius:12px;justify-content:flex-start;padding:10px 12px">
+                  <input id="autoK" type="checkbox" />
+                  K matchar clear-sky max (jämför form på samma skala)
+                </span>
+              </label>
+            </div>
+
+            <div class="legend">
+              <div class="lg"><span class="sw" style="background:var(--uv-low)"></span>0–2 Låg</div>
+              <div class="lg"><span class="sw" style="background:var(--uv-mod)"></span>3–5 Måttlig</div>
+              <div class="lg"><span class="sw" style="background:var(--uv-high)"></span>6–7 Hög</div>
+              <div class="lg"><span class="sw" style="background:var(--uv-vhigh)"></span>8–10 Mycket hög</div>
+              <div class="lg"><span class="sw" style="background:var(--uv-ext)"></span>11+ Extrem</div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
 
     <section class="panel">
-      <div class="row">
+      <div class="row2">
         <label>
-          Datum (lokal dag för platsen)
+          Datum
           <input id="dateInput" type="date" />
         </label>
 
-        <div style="display:grid;gap:10px">
-          <div class="btns" style="margin:0">
-            <button class="primary" id="geoBtn">Hämta GPS-position</button>
-            <button id="redrawBtn">Hämta & rita</button>
+        <label>
+          Plats
+          <div class="placeRow">
+            <input id="placeInput" type="text" placeholder="lat, lon (t.ex. 7.6253, 99.0324)" />
+            <button class="iconBtn primary" id="gpsBtn" title="Hämta GPS" aria-label="Hämta GPS">➤</button>
           </div>
-          <div id="status" class="status">Redo. Tryck “Hämta GPS-position”.</div>
-        </div>
+          <span class="small">Skriv koordinater som <span class="mono">lat, lon</span> eller använd GPS-knappen.</span>
+        </label>
       </div>
 
+      <div class="updateRow">
+        <button class="primary" id="updateBtn" style="width:100%">Uppdatera</button>
+        <div id="status" class="status">Redo.</div>
+      </div>
+    </section>
+
+    <section class="panel">
       <div class="curveToggles">
         <label class="chk">
           <input id="showClear" type="checkbox" checked />
           <span class="sw" style="background:var(--line-clear)"></span>
-          Open-Meteo clear-sky
+          Clear sky
         </label>
         <label class="chk">
           <input id="showGeo" type="checkbox" checked />
@@ -180,122 +305,83 @@
         <label class="chk">
           <input id="showAll" type="checkbox" checked />
           <span class="sw" style="background:var(--line-all)"></span>
-          Open-Meteo all-sky
+          All-sky
         </label>
       </div>
 
-      <details>
-        <summary><span class="chev"></span> Avancerade inställningar</summary>
-
-        <div class="advGrid">
-          <label>
-            Sampling (minuter)
-            <input id="stepInput" type="number" min="5" max="60" step="5" value="10" />
-            <span class="small">Open-Meteo är oftast timvärden. Vi interpolerar linjärt till detta steg.</span>
-          </label>
-
-          <div class="small">
-            <b>Kurvorna</b><br/>
-            • <span class="mono">uv_index_clear_sky</span> = klar-himmel (modell).<br/>
-            • <span class="mono">uv_index</span> = “all-sky” (moln m.m.).<br/>
-            • Geometri = förenklad form baserad på solhöjd.
-          </div>
-
-          <label>
-            Geometri: K (din)
-            <input id="kRange" type="range" min="6" max="18" step="0.1" value="11.0" />
-            <span class="mono" id="kVal">11.0</span>
-          </label>
-
-          <label>
-            Geometri: n (exponent)
-            <input id="nRange" type="range" min="1.0" max="1.9" step="0.01" value="1.30" />
-            <span class="mono" id="nVal">1.30</span>
-          </label>
-
-          <label style="grid-column:1/-1">
-            <span class="chk" style="border-radius:12px;justify-content:flex-start;padding:10px 12px">
-              <input id="autoK" type="checkbox" />
-              K matchar clear-sky max (jämför form på samma skala)
-            </span>
-            <span class="small" style="margin-top:6px;display:block">
-              När detta är på räknar vi ut en faktor <span class="mono">scale = clearPeak / geoPeak</span> och använder
-              <span class="mono">K_eff = K · scale</span> bara för den geometriska kurvan. Din slider (K din) ändras inte.
-            </span>
-          </label>
-
-          <div class="small" style="grid-column:1/-1">
-            <b>Geometri-modellen</b><br/>
-            <span class="mono">UV = K · sin(elev)^n</span>, där <span class="mono">elev</span> är solens höjdvinkel.
-            Inte en full atmosfärisk UV-modell – mest en “form-approx”.
-          </div>
-        </div>
-
-        <div class="legend">
-          <div class="lg"><span class="sw" style="background:var(--uv-low)"></span>0–2 Låg</div>
-          <div class="lg"><span class="sw" style="background:var(--uv-mod)"></span>3–5 Måttlig</div>
-          <div class="lg"><span class="sw" style="background:var(--uv-high)"></span>6–7 Hög</div>
-          <div class="lg"><span class="sw" style="background:var(--uv-vhigh)"></span>8–10 Mycket hög</div>
-          <div class="lg"><span class="sw" style="background:var(--uv-ext)"></span>11+ Extrem</div>
-        </div>
-      </details>
-    </section>
-
-    <section class="panel">
-      <div class="pill"><span>Lat / Lon</span><span class="mono" id="latLon">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Timezone (API)</span><span class="mono" id="tzShow">—</span></div>
-
-      <div class="pillGrid">
-        <div class="pill"><span>Max clear-sky (daily)</span><span class="mono" id="maxClear">—</span></div>
-        <div class="pill"><span>Max all-sky (daily)</span><span class="mono" id="maxAll">—</span></div>
-        <div class="pill"><span>Geometri max (kurva)</span><span class="mono" id="maxGeo">—</span></div>
-        <div class="pill"><span>K (effektiv)</span><span class="mono" id="kEff">—</span></div>
-        <div class="pill"><span>Skalning (scale)</span><span class="mono" id="scaleShow">—</span></div>
-        <div class="pill"><span>Tid för max (≈, valda)</span><span class="mono" id="maxTime">—</span></div>
-      </div>
-    </section>
-
-    <section class="panel">
       <canvas id="chart" width="1200" height="540"></canvas>
     </section>
+
+    <details class="panel" id="moreInfoDetails">
+      <summary>Mer info</summary>
+
+      <div class="pillGrid">
+        <div class="pill"><span>Timezone (API)</span><span class="mono" id="tzShow">—</span></div>
+        <div class="pill"><span>Lat / Lon</span><span class="mono" id="latLon">—</span></div>
+
+        <div class="pill"><span>Max clear-sky (daily)</span><span class="mono" id="maxClear">—</span></div>
+        <div class="pill"><span>Max all-sky (daily)</span><span class="mono" id="maxAll">—</span></div>
+
+        <div class="pill"><span>Geometri max (kurva)</span><span class="mono" id="maxGeo">—</span></div>
+        <div class="pill"><span>Tid för max (≈, valda)</span><span class="mono" id="maxTime">—</span></div>
+
+        <div class="pill"><span>K (din)</span><span class="mono" id="kUserShow">—</span></div>
+        <div class="pill"><span>K (effektiv)</span><span class="mono" id="kEff">—</span></div>
+
+        <div class="pill"><span>Skalning (scale)</span><span class="mono" id="scaleShow">—</span></div>
+        <div class="pill"><span>Sampling</span><span class="mono" id="samplingShow">—</span></div>
+      </div>
+
+      <div class="small" style="margin-top:10px">
+        “Tid för max” kommer från de interpolerade kurvorna i grafen (och blir därför ungefärlig).
+      </div>
+    </details>
   </div>
 
 <script>
 (() => {
   const el = (id) => document.getElementById(id);
 
-  const dateInput = el("dateInput");
-  const stepInput = el("stepInput");
-  const geoBtn = el("geoBtn");
-  const redrawBtn = el("redrawBtn");
+  // Inputs
+  const dateInput  = el("dateInput");
+  const placeInput = el("placeInput");
+  const gpsBtn     = el("gpsBtn");
+  const updateBtn  = el("updateBtn");
 
+  // Toggles
   const showClear = el("showClear");
-  const showGeo = el("showGeo");
-  const showAll = el("showAll");
+  const showGeo   = el("showGeo");
+  const showAll   = el("showAll");
 
+  // Advanced
+  const stepInput = el("stepInput");
   const kRange = el("kRange");
   const nRange = el("nRange");
   const kVal = el("kVal");
   const nVal = el("nVal");
   const autoK = el("autoK");
 
-  const latLon = el("latLon");
+  // Info outputs
   const tzShow = el("tzShow");
+  const latLon = el("latLon");
   const maxClear = el("maxClear");
   const maxAll = el("maxAll");
   const maxGeo = el("maxGeo");
+  const maxTime = el("maxTime");
   const kEff = el("kEff");
   const scaleShow = el("scaleShow");
-  const maxTime = el("maxTime");
+  const kUserShow = el("kUserShow");
+  const samplingShow = el("samplingShow");
+
   const status = el("status");
 
+  // Canvas
   const canvas = el("chart");
   const ctx = canvas.getContext("2d");
 
   const START_H = 7;
   const END_H = 19;
 
-  let state = { lat: null, lon: null };
   let inflight = null;
 
   function setStatus(msg, isErr=false){
@@ -307,6 +393,18 @@
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
+
+  function parseLatLon(text){
+    // accept "lat, lon" with spaces
+    const m = String(text).trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    const lat = Number(m[1]);
+    const lon = Number(m[2]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  }
+
   function fmtLocalHHMMFromUtcSec(utcSec, offsetSec){
     const d = new Date((utcSec + offsetSec) * 1000);
     const hh = d.getUTCHours();
@@ -318,7 +416,7 @@
     return d.getUTCHours() + d.getUTCMinutes()/60;
   }
 
-  // ---- Solar geometry approximation ----
+  // --- Solar geometry approximation ---
   function dayOfYear(y,m,d){
     const dt = new Date(Date.UTC(y, m-1, d));
     const start = new Date(Date.UTC(y, 0, 1));
@@ -357,7 +455,6 @@
       Math.sin(lat) * Math.sin(decl) +
       Math.cos(lat) * Math.cos(decl) * Math.cos(ha)
     );
-
     return elevRad * 180 / Math.PI;
   }
 
@@ -367,7 +464,7 @@
     return K * Math.pow(Math.max(0, s), n);
   }
 
-  // ---- Chart helpers ----
+  // --- Chart helpers ---
   function clamp(x,a,b){ return Math.min(b, Math.max(a, x)); }
 
   function drawUvBands(pad, pw, ph, yMax){
@@ -489,6 +586,7 @@
 
     const dMaxAllArr = data?.daily?.uv_index_max;
     const dMaxClearArr = data?.daily?.uv_index_clear_sky_max;
+
     const dailyMaxAll = Array.isArray(dMaxAllArr) ? dMaxAllArr[0] : null;
     const dailyMaxClear = Array.isArray(dMaxClearArr) ? dMaxClearArr[0] : null;
 
@@ -528,22 +626,26 @@
     if (showAll.checked)   drawLine(timesH, series.all,   styles.getPropertyValue("--line-all").trim(), yMax);
   }
 
-  async function redraw(){
+  async function update(){
     try {
       kVal.textContent = Number(kRange.value).toFixed(1);
       nVal.textContent = Number(nRange.value).toFixed(2);
 
-      if (!Number.isFinite(state.lat) || !Number.isFinite(state.lon)) {
-        throw new Error("Ingen GPS-position ännu.");
-      }
-      const ymd = dateInput.value;
-      const stepMin = Math.max(5, Math.min(60, Number(stepInput.value) || 10));
+      const parsed = parseLatLon(placeInput.value);
+      if (!parsed) throw new Error("Plats måste vara koordinater som: lat, lon (t.ex. 7.6253, 99.0324).");
 
-      setStatus("Hämtar Open-Meteo (uv_index + uv_index_clear_sky)…");
+      const { lat, lon } = parsed;
+      const ymd = dateInput.value;
+
+      const stepMin = Math.max(5, Math.min(60, Number(stepInput.value) || 10));
+      samplingShow.textContent = `${stepMin} min`;
+
+      setStatus("Hämtar data…");
 
       const { tzName, offsetSec, xsSec, uvAll, uvClear, dailyMaxAll, dailyMaxClear } =
-        await fetchOpenMeteo(state.lat, state.lon, ymd);
+        await fetchOpenMeteo(lat, lon, ymd);
 
+      // Build UTC timeline for local 07:00–19:00 at location:
       const [yy, mm, dd] = ymd.split("-").map(Number);
       const startUtcSec = Math.floor(Date.UTC(yy, mm-1, dd, START_H, 0, 0) / 1000) - offsetSec;
       const endUtcSec   = Math.floor(Date.UTC(yy, mm-1, dd, END_H,   0, 0) / 1000) - offsetSec;
@@ -555,7 +657,6 @@
       const n = Number(nRange.value);
       const tzHours = offsetSec / 3600;
 
-      // 1) Build clear + all and base-geo (with Kuser)
       for (let t = startUtcSec; t <= endUtcSec; t += stepMin * 60) {
         const localH = localHoursFromUtcSec(t, offsetSec);
         timesH.push(localH);
@@ -566,14 +667,18 @@
         series.clear.push(Math.max(0, c));
         series.all.push(Math.max(0, a));
 
-        const elev = solarElevationDeg(localH, state.lat, state.lon, tzHours, yy, mm, dd);
+        const elev = solarElevationDeg(localH, lat, lon, tzHours, yy, mm, dd);
         series.geo.push(Math.max(0, uvFromElevation(elev, Kuser, n)));
       }
 
-      // 2) Compute peaks for scaling
+      // Calibration (optional): scale geometry to match clear-sky peak
       const clearPeak = (typeof dailyMaxClear === "number" && Number.isFinite(dailyMaxClear))
         ? dailyMaxClear
         : Math.max(...series.clear);
+
+      const allPeak = (typeof dailyMaxAll === "number" && Number.isFinite(dailyMaxAll))
+        ? dailyMaxAll
+        : Math.max(...series.all);
 
       const geoPeakBase = Math.max(...series.geo);
 
@@ -584,31 +689,16 @@
         scale = clearPeak / geoPeakBase;
         Keffective = Kuser * scale;
 
-        // rebuild geo with Keffective
+        // rebuild geometry with K_eff
         series.geo = [];
         for (let i=0;i<timesH.length;i++){
           const localH = timesH[i];
-          const elev = solarElevationDeg(localH, state.lat, state.lon, tzHours, yy, mm, dd);
+          const elev = solarElevationDeg(localH, lat, lon, tzHours, yy, mm, dd);
           series.geo.push(Math.max(0, uvFromElevation(elev, Keffective, n)));
         }
       }
 
-      // UI: show max values and calibration info
-      latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
-      tzShow.textContent = tzName;
-
-      const allPeak = (typeof dailyMaxAll === "number" && Number.isFinite(dailyMaxAll))
-        ? dailyMaxAll
-        : Math.max(...series.all);
-
-      maxClear.textContent = clearPeak.toFixed(1);
-      maxAll.textContent = allPeak.toFixed(1);
-      maxGeo.textContent = Math.max(...series.geo).toFixed(1);
-
-      kEff.textContent = Keffective.toFixed(2);
-      scaleShow.textContent = (scale === null) ? "—" : scale.toFixed(3);
-
-      // Time-of-max among enabled curves (approx, from sampled series)
+      // Pick time-of-max among enabled curves (approx from sampled curves)
       let bestIdx = 0, bestVal = -1;
       for (let i=0;i<timesH.length;i++){
         const candidates = [];
@@ -619,10 +709,23 @@
         if (v > bestVal) { bestVal = v; bestIdx = i; }
       }
       const tBestUtcSec = startUtcSec + bestIdx * stepMin * 60;
+
+      // Update info panel
+      tzShow.textContent = tzName;
+      latLon.textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+      maxClear.textContent = Number(clearPeak).toFixed(1);
+      maxAll.textContent   = Number(allPeak).toFixed(1);
+      maxGeo.textContent   = Math.max(...series.geo).toFixed(1);
+
+      kUserShow.textContent = Kuser.toFixed(2);
+      kEff.textContent      = Keffective.toFixed(2);
+      scaleShow.textContent = (scale === null) ? "—" : scale.toFixed(3);
+
       maxTime.textContent = fmtLocalHHMMFromUtcSec(tBestUtcSec, offsetSec);
 
       drawAll(timesH, series);
-      setStatus(`Ritad (${stepMin} min).`);
+      setStatus("Uppdaterad.");
     } catch (e) {
       if (e?.name === "AbortError") return;
       setStatus(e.message || String(e), true);
@@ -634,27 +737,37 @@
       setStatus("Geolocation stöds inte i denna webbläsare.", true);
       return;
     }
-    setStatus("Hämtar GPS-position…");
+    setStatus("Hämtar GPS…");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        state.lat = pos.coords.latitude;
-        state.lon = pos.coords.longitude;
-        redraw();
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        placeInput.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        update();
       },
-      (err) => setStatus(`Kunde inte hämta position: ${err.message}`, true),
+      (err) => setStatus(`Kunde inte hämta GPS: ${err.message}`, true),
       { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
     );
   }
 
-  geoBtn.addEventListener("click", requestGeo);
-  redrawBtn.addEventListener("click", redraw);
+  // Events
+  gpsBtn.addEventListener("click", requestGeo);
+  updateBtn.addEventListener("click", update);
 
-  [dateInput, stepInput, showClear, showGeo, showAll, kRange, nRange, autoK]
-    .forEach(x => x.addEventListener("input", redraw));
+  // re-render on settings changes (but do not auto-fetch unless coords are valid)
+  function softUpdate(){
+    const parsed = parseLatLon(placeInput.value);
+    if (parsed) update();
+  }
 
+  [dateInput, showClear, showGeo, showAll, stepInput, kRange, nRange, autoK].forEach(x => x.addEventListener("input", softUpdate));
+  placeInput.addEventListener("change", softUpdate);
+
+  // Init
   dateInput.value = todayLocalYMD();
   kVal.textContent = Number(kRange.value).toFixed(1);
   nVal.textContent = Number(nRange.value).toFixed(2);
+  samplingShow.textContent = `${Number(stepInput.value) || 10} min`;
 })();
 </script>
 </body>
