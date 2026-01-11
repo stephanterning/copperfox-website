@@ -16,9 +16,9 @@
       --uv-vhigh: rgba(198,120,221,0.12);
       --uv-ext:   rgba(97,175,239,0.12);
 
-      --line-clear: rgba(86,182,194,0.95);   /* Open-Meteo clear sky */
-      --line-geo:   rgba(229,192,123,0.95);  /* geometry */
-      --line-all:   rgba(224,108,117,0.95);  /* Open-Meteo all-sky */
+      --line-clear: rgba(86,182,194,0.95);
+      --line-geo:   rgba(229,192,123,0.95);
+      --line-all:   rgba(224,108,117,0.95);
     }
 
     *{box-sizing:border-box}
@@ -30,7 +30,6 @@
     }
     .wrap{max-width:980px;margin:0 auto;display:grid;gap:12px}
 
-    /* Top bar */
     .topbar{
       display:flex;
       align-items:center;
@@ -40,7 +39,6 @@
     }
     h1{font-size:18px;margin:0}
 
-    /* Panel */
     .panel{
       background:linear-gradient(180deg, var(--panelA), var(--panelB));
       border:1px solid var(--border);
@@ -48,7 +46,6 @@
       padding:14px;
     }
 
-    /* Inputs */
     label{display:grid;gap:6px;font-size:12px;color:var(--muted)}
     input[type="date"], input[type="text"], input[type="number"]{
       width:100%;
@@ -75,7 +72,6 @@
       align-items:end;
     }
 
-    /* Buttons */
     button{
       cursor:pointer;
       border:1px solid var(--border);
@@ -94,12 +90,13 @@
       height:42px;
       width:44px;
       border-radius:10px;
+      font-size:18px;
+      line-height:1;
     }
     .updateRow{ margin-top:10px; }
     .status{font-size:12px;color:var(--muted);margin-top:10px}
     .status.err{color:var(--danger)}
 
-    /* Curve toggles */
     .curveToggles{
       display:flex; flex-wrap:wrap; gap:10px;
       margin-bottom:10px;
@@ -117,7 +114,6 @@
     .chk input{ transform: scale(1.1); }
     .sw{width:10px;height:10px;border-radius:3px; display:inline-block}
 
-    /* Canvas */
     canvas{
       width:100%;
       height:390px;
@@ -129,7 +125,6 @@
     .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
     .small{font-size:12px;color:var(--muted);line-height:1.4}
 
-    /* Details */
     details{
       border:1px solid var(--border);
       border-radius:12px;
@@ -147,7 +142,6 @@
     }
     summary::-webkit-details-marker{ display:none; }
 
-    /* Gear (top right) */
     .gear details{
       padding:0;
       border:none;
@@ -177,7 +171,6 @@
       gap:12px;
     }
     @media (max-width:700px){.advGrid{grid-template-columns:1fr}}
-
     input[type="range"]{width:100%}
 
     .pillGrid{
@@ -201,7 +194,6 @@
       border:1px solid var(--border); background:rgba(255,255,255,.03);
       padding:6px 10px; border-radius:999px; font-size:12px; color:var(--muted)
     }
-
   </style>
 </head>
 <body>
@@ -232,7 +224,6 @@
                 När “K matchar clear-sky max” är på räknar vi ut
                 <span class="mono">scale = clearPeak / geoPeak</span> och använder
                 <span class="mono">K_eff = K · scale</span> <i>endast</i> för geometri-kurvan.
-                Din slider (K) ändras inte.
               </div>
 
               <label>
@@ -277,10 +268,20 @@
         <label>
           Plats
           <div class="placeRow">
-            <input id="placeInput" type="text" placeholder="lat, lon (t.ex. 7.6253, 99.0324)" />
-            <button class="iconBtn primary" id="gpsBtn" title="Hämta GPS" aria-label="Hämta GPS">➤</button>
+            <input
+              id="placeInput"
+              type="text"
+              placeholder="Sök stad eller skriv lat lon"
+              list="placeDatalist"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <datalist id="placeDatalist"></datalist>
+            <button class="iconBtn primary" id="gpsBtn" title="Hämta GPS" aria-label="Hämta GPS">⌖</button>
           </div>
-          <span class="small">Skriv koordinater som <span class="mono">lat, lon</span> eller använd GPS-knappen.</span>
+          <span class="small">
+            Skriv t.ex. <span class="mono">Stockholm</span> eller koordinater som <span class="mono">7.6253 99.0324</span> / <span class="mono">7.6253, 99.0324</span>.
+          </span>
         </label>
       </div>
 
@@ -325,7 +326,7 @@
         <div class="pill"><span>Geometri max (kurva)</span><span class="mono" id="maxGeo">—</span></div>
         <div class="pill"><span>Tid för max (≈, valda)</span><span class="mono" id="maxTime">—</span></div>
 
-        <div class="pill"><span>K (din)</span><span class="mono" id="kUserShow">—</span></div>
+        <div class="pill"><span>K</span><span class="mono" id="kUserShow">—</span></div>
         <div class="pill"><span>K (effektiv)</span><span class="mono" id="kEff">—</span></div>
 
         <div class="pill"><span>Skalning (scale)</span><span class="mono" id="scaleShow">—</span></div>
@@ -342,18 +343,16 @@
 (() => {
   const el = (id) => document.getElementById(id);
 
-  // Inputs
   const dateInput  = el("dateInput");
   const placeInput = el("placeInput");
+  const placeDatalist = el("placeDatalist");
   const gpsBtn     = el("gpsBtn");
   const updateBtn  = el("updateBtn");
 
-  // Toggles
   const showClear = el("showClear");
   const showGeo   = el("showGeo");
   const showAll   = el("showAll");
 
-  // Advanced
   const stepInput = el("stepInput");
   const kRange = el("kRange");
   const nRange = el("nRange");
@@ -361,7 +360,6 @@
   const nVal = el("nVal");
   const autoK = el("autoK");
 
-  // Info outputs
   const tzShow = el("tzShow");
   const latLon = el("latLon");
   const maxClear = el("maxClear");
@@ -375,14 +373,17 @@
 
   const status = el("status");
 
-  // Canvas
   const canvas = el("chart");
   const ctx = canvas.getContext("2d");
 
   const START_H = 7;
   const END_H = 19;
 
-  let inflight = null;
+  let inflightForecast = null;
+  let inflightGeo = null;
+
+  // Latest suggestions (displayName -> payload)
+  const suggestionMap = new Map();
 
   function setStatus(msg, isErr=false){
     status.textContent = msg;
@@ -395,8 +396,9 @@
   }
 
   function parseLatLon(text){
-    // accept "lat, lon" with spaces
-    const m = String(text).trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    // Accept "lat, lon" or "lat lon" (one+ whitespace)
+    const s = String(text).trim();
+    const m = s.match(/^(-?\d+(?:\.\d+)?)\s*(?:,|\s+)\s*(-?\d+(?:\.\d+)?)$/);
     if (!m) return null;
     const lat = Number(m[1]);
     const lon = Number(m[2]);
@@ -554,7 +556,102 @@
     return y0 + f * (y1 - y0);
   }
 
-  async function fetchOpenMeteo(lat, lon, ymd){
+  function drawAll(timesH, series){
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+
+    const pad = {l:56, r:18, t:18, b:44};
+    const pw = w - pad.l - pad.r;
+    const ph = h - pad.t - pad.b;
+
+    const allVals = [];
+    if (showClear.checked) allVals.push(...series.clear);
+    if (showAll.checked)   allVals.push(...series.all);
+    if (showGeo.checked)   allVals.push(...series.geo);
+
+    const yMaxRaw = Math.max(1, ...allVals.filter(v => Number.isFinite(v)));
+    const yMax = Math.ceil(yMaxRaw * 2) / 2;
+
+    drawUvBands(pad, pw, ph, yMax);
+    drawGrid(pad, w, h, pw, ph, yMax);
+
+    const styles = getComputedStyle(document.documentElement);
+    if (showClear.checked) drawLine(timesH, series.clear, styles.getPropertyValue("--line-clear").trim(), yMax);
+    if (showGeo.checked)   drawLine(timesH, series.geo,   styles.getPropertyValue("--line-geo").trim(), yMax);
+    if (showAll.checked)   drawLine(timesH, series.all,   styles.getPropertyValue("--line-all").trim(), yMax);
+  }
+
+  // --- Open-Meteo geocoding ---
+  function formatPlace(r){
+    const parts = [];
+    if (r?.name) parts.push(r.name);
+    // admin1 is often state/region; avoid duplicates like "Berlin, Berlin"
+    const admin1 = (r?.admin1 && r.admin1 !== r.name) ? r.admin1 : "";
+    if (admin1) parts.push(admin1);
+    if (r?.country) parts.push(r.country);
+    return parts.join(", ");
+  }
+
+  async function geocode(query){
+    const q = String(query || "").trim();
+    if (q.length < 2) return [];
+
+    const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    url.searchParams.set("name", q);
+    url.searchParams.set("count", "10");
+    url.searchParams.set("language", "sv");
+    url.searchParams.set("format", "json");
+
+    if (inflightGeo) inflightGeo.abort();
+    inflightGeo = new AbortController();
+
+    const res = await fetch(url.toString(), { signal: inflightGeo.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results = Array.isArray(data?.results) ? data.results : [];
+    return results
+      .filter(r => Number.isFinite(r?.latitude) && Number.isFinite(r?.longitude))
+      .map(r => ({
+        display: formatPlace(r),
+        lat: Number(r.latitude),
+        lon: Number(r.longitude),
+        raw: r
+      }));
+  }
+
+  function setDatalist(suggestions){
+    suggestionMap.clear();
+    placeDatalist.innerHTML = "";
+    for (const s of suggestions){
+      const opt = document.createElement("option");
+      opt.value = s.display;
+      placeDatalist.appendChild(opt);
+      suggestionMap.set(s.display, { lat: s.lat, lon: s.lon, display: s.display });
+    }
+  }
+
+  let debounceT = null;
+  function onPlaceInput(){
+    const q = placeInput.value.trim();
+    // if coords, do not suggest
+    if (parseLatLon(q)) {
+      setDatalist([]);
+      return;
+    }
+    clearTimeout(debounceT);
+    debounceT = setTimeout(async () => {
+      try{
+        if (q.trim().length < 2) { setDatalist([]); return; }
+        const res = await geocode(q);
+        setDatalist(res);
+      } catch {
+        // ignore
+      }
+    }, 250);
+  }
+
+  // --- Open-Meteo forecast ---
+  async function fetchOpenMeteoForecast(lat, lon, ymd){
     const url = new URL("https://api.open-meteo.com/v1/forecast");
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lon));
@@ -565,10 +662,10 @@
     url.searchParams.set("start_date", ymd);
     url.searchParams.set("end_date", ymd);
 
-    if (inflight) inflight.abort();
-    inflight = new AbortController();
+    if (inflightForecast) inflightForecast.abort();
+    inflightForecast = new AbortController();
 
-    const res = await fetch(url.toString(), { signal: inflight.signal });
+    const res = await fetch(url.toString(), { signal: inflightForecast.signal });
     if (!res.ok) throw new Error(`Open-Meteo fel: HTTP ${res.status}`);
     const data = await res.json();
 
@@ -601,29 +698,28 @@
     };
   }
 
-  function drawAll(timesH, series){
-    const w = canvas.width, h = canvas.height;
-    ctx.clearRect(0,0,w,h);
+  async function resolvePlaceToCoords(){
+    const txt = placeInput.value.trim();
 
-    const pad = {l:56, r:18, t:18, b:44};
-    const pw = w - pad.l - pad.r;
-    const ph = h - pad.t - pad.b;
+    // 1) coords typed
+    const coords = parseLatLon(txt);
+    if (coords) return { ...coords, display: `${coords.lat.toFixed(4)}, ${coords.lon.toFixed(4)}`, source: "coords" };
 
-    const allVals = [];
-    if (showClear.checked) allVals.push(...series.clear);
-    if (showAll.checked)   allVals.push(...series.all);
-    if (showGeo.checked)   allVals.push(...series.geo);
+    // 2) selected suggestion
+    if (suggestionMap.has(txt)) {
+      const s = suggestionMap.get(txt);
+      return { lat: s.lat, lon: s.lon, display: s.display, source: "suggestion" };
+    }
 
-    const yMaxRaw = Math.max(1, ...allVals.filter(v => Number.isFinite(v)));
-    const yMax = Math.ceil(yMaxRaw * 2) / 2;
-
-    drawUvBands(pad, pw, ph, yMax);
-    drawGrid(pad, w, h, pw, ph, yMax);
-
-    const styles = getComputedStyle(document.documentElement);
-    if (showClear.checked) drawLine(timesH, series.clear, styles.getPropertyValue("--line-clear").trim(), yMax);
-    if (showGeo.checked)   drawLine(timesH, series.geo,   styles.getPropertyValue("--line-geo").trim(), yMax);
-    if (showAll.checked)   drawLine(timesH, series.all,   styles.getPropertyValue("--line-all").trim(), yMax);
+    // 3) geocode on-demand
+    const res = await geocode(txt);
+    if (!res.length) throw new Error("Ingen träff på plats. Testa annan stavning eller skriv koordinater.");
+    const first = res[0];
+    // Put canonical display in the field
+    placeInput.value = first.display;
+    // Update cache so subsequent edits can match
+    suggestionMap.set(first.display, { lat: first.lat, lon: first.lon, display: first.display });
+    return { lat: first.lat, lon: first.lon, display: first.display, source: "geocode" };
   }
 
   async function update(){
@@ -631,19 +727,17 @@
       kVal.textContent = Number(kRange.value).toFixed(1);
       nVal.textContent = Number(nRange.value).toFixed(2);
 
-      const parsed = parseLatLon(placeInput.value);
-      if (!parsed) throw new Error("Plats måste vara koordinater som: lat, lon (t.ex. 7.6253, 99.0324).");
-
-      const { lat, lon } = parsed;
       const ymd = dateInput.value;
-
       const stepMin = Math.max(5, Math.min(60, Number(stepInput.value) || 10));
       samplingShow.textContent = `${stepMin} min`;
 
-      setStatus("Hämtar data…");
+      setStatus("Uppdaterar…");
 
-      const { tzName, offsetSec, xsSec, uvAll, uvClear, dailyMaxAll, dailyMaxClear } =
-        await fetchOpenMeteo(lat, lon, ymd);
+      const place = await resolvePlaceToCoords();
+      const { lat, lon } = place;
+
+      const forecast = await fetchOpenMeteoForecast(lat, lon, ymd);
+      const { tzName, offsetSec, xsSec, uvAll, uvClear, dailyMaxAll, dailyMaxClear } = forecast;
 
       // Build UTC timeline for local 07:00–19:00 at location:
       const [yy, mm, dd] = ymd.split("-").map(Number);
@@ -671,7 +765,6 @@
         series.geo.push(Math.max(0, uvFromElevation(elev, Kuser, n)));
       }
 
-      // Calibration (optional): scale geometry to match clear-sky peak
       const clearPeak = (typeof dailyMaxClear === "number" && Number.isFinite(dailyMaxClear))
         ? dailyMaxClear
         : Math.max(...series.clear);
@@ -689,7 +782,6 @@
         scale = clearPeak / geoPeakBase;
         Keffective = Kuser * scale;
 
-        // rebuild geometry with K_eff
         series.geo = [];
         for (let i=0;i<timesH.length;i++){
           const localH = timesH[i];
@@ -698,7 +790,7 @@
         }
       }
 
-      // Pick time-of-max among enabled curves (approx from sampled curves)
+      // Time-of-max among enabled curves (approx from sampled curves)
       let bestIdx = 0, bestVal = -1;
       for (let i=0;i<timesH.length;i++){
         const candidates = [];
@@ -710,7 +802,7 @@
       }
       const tBestUtcSec = startUtcSec + bestIdx * stepMin * 60;
 
-      // Update info panel
+      // Info panel
       tzShow.textContent = tzName;
       latLon.textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
 
@@ -739,27 +831,33 @@
     }
     setStatus("Hämtar GPS…");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
-        placeInput.value = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-        update();
+        // Reverse geocoding finns inte i Open-Meteo Geocoding API,
+        // så vi fyller coords här.
+        placeInput.value = `${lat.toFixed(4)} ${lon.toFixed(4)}`;
+        setDatalist([]);
+        await update();
       },
       (err) => setStatus(`Kunde inte hämta GPS: ${err.message}`, true),
       { enableHighAccuracy:true, timeout:12000, maximumAge:60000 }
     );
   }
 
-  // Events
+  // Autocomplete: update datalist while typing
+  placeInput.addEventListener("input", onPlaceInput);
+
+  // Actions
   gpsBtn.addEventListener("click", requestGeo);
   updateBtn.addEventListener("click", update);
 
-  // re-render on settings changes (but do not auto-fetch unless coords are valid)
+  // Re-render on settings changes (auto-update only if place is valid-ish)
   function softUpdate(){
-    const parsed = parseLatLon(placeInput.value);
-    if (parsed) update();
+    const t = placeInput.value.trim();
+    // update if coords, or if they selected an existing suggestion, or if >= 2 chars (we can geocode)
+    if (parseLatLon(t) || suggestionMap.has(t) || t.length >= 2) update();
   }
-
   [dateInput, showClear, showGeo, showAll, stepInput, kRange, nRange, autoK].forEach(x => x.addEventListener("input", softUpdate));
   placeInput.addEventListener("change", softUpdate);
 
