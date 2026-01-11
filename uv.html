@@ -10,17 +10,15 @@
       --border:rgba(255,255,255,.09); --danger:#e06c75;
       --panelA:rgba(255,255,255,.04); --panelB:rgba(255,255,255,.02);
 
-      /* UV band colors */
-      --uv-low:   rgba(152,195,121,0.10); /* 0-2 */
-      --uv-mod:   rgba(229,192,123,0.10); /* 3-5 */
-      --uv-high:  rgba(224,108,117,0.10); /* 6-7 */
-      --uv-vhigh: rgba(198,120,221,0.12); /* 8-10 */
-      --uv-ext:   rgba(97,175,239,0.12);  /* 11+ */
+      --uv-low:   rgba(152,195,121,0.10);
+      --uv-mod:   rgba(229,192,123,0.10);
+      --uv-high:  rgba(224,108,117,0.10);
+      --uv-vhigh: rgba(198,120,221,0.12);
+      --uv-ext:   rgba(97,175,239,0.12);
 
-      /* line colors */
-      --line-clear: rgba(86,182,194,0.95);   /* Open-Meteo clear sky */
-      --line-geo:   rgba(229,192,123,0.95);  /* geometry */
-      --line-all:   rgba(224,108,117,0.95);  /* Open-Meteo all-sky */
+      --line-clear: rgba(86,182,194,0.95);
+      --line-geo:   rgba(229,192,123,0.95);
+      --line-all:   rgba(224,108,117,0.95);
     }
     *{box-sizing:border-box}
     body{
@@ -134,6 +132,14 @@
       user-select:none;
     }
     .chk input{ transform: scale(1.1); }
+
+    .pillGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:700px){.pillGrid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -191,12 +197,12 @@
           <div class="small">
             <b>Kurvorna</b><br/>
             • <span class="mono">uv_index_clear_sky</span> = klar-himmel (modell).<br/>
-            • <span class="mono">uv_index</span> = “all-sky” (påverkas av moln m.m.).  [oai_citation:2‡Stack Overflow](https://stackoverflow.com/questions/76199673/unhandled-runtime-error-error-connector-http-error-bad-request?utm_source=chatgpt.com)<br/>
+            • <span class="mono">uv_index</span> = “all-sky” (moln m.m.).<br/>
             • Geometri = förenklad form baserad på solhöjd.
           </div>
 
           <label>
-            Geometri: K (skalning)
+            Geometri: K (din)
             <input id="kRange" type="range" min="6" max="18" step="0.1" value="11.0" />
             <span class="mono" id="kVal">11.0</span>
           </label>
@@ -209,18 +215,19 @@
 
           <label style="grid-column:1/-1">
             <span class="chk" style="border-radius:12px;justify-content:flex-start;padding:10px 12px">
-              <input id="autoK" type="checkbox" checked />
-              Auto-kalibrera K så geometri-topp ≈ clear-sky max
+              <input id="autoK" type="checkbox" />
+              K matchar clear-sky max (jämför form på samma skala)
             </span>
             <span class="small" style="margin-top:6px;display:block">
-              Påverkar bara <b>nivån</b> på geometri-kurvan (inte formen). Stäng av om du vill styra K själv.
+              När detta är på räknar vi ut en faktor <span class="mono">scale = clearPeak / geoPeak</span> och använder
+              <span class="mono">K_eff = K · scale</span> bara för den geometriska kurvan. Din slider (K din) ändras inte.
             </span>
           </label>
 
           <div class="small" style="grid-column:1/-1">
             <b>Geometri-modellen</b><br/>
             <span class="mono">UV = K · sin(elev)^n</span>, där <span class="mono">elev</span> är solens höjdvinkel.
-            Detta är inte en full UV-modell (ozon/aerosol), utan en “form-approx”.
+            Inte en full atmosfärisk UV-modell – mest en “form-approx”.
           </div>
         </div>
 
@@ -238,9 +245,14 @@
       <div class="pill"><span>Lat / Lon</span><span class="mono" id="latLon">—</span></div>
       <div class="pill" style="margin-top:10px;"><span>Timezone (API)</span><span class="mono" id="tzShow">—</span></div>
 
-      <div class="pill" style="margin-top:10px;"><span>Max clear-sky (daily)</span><span class="mono" id="maxClear">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Max all-sky (daily)</span><span class="mono" id="maxAll">—</span></div>
-      <div class="pill" style="margin-top:10px;"><span>Tid för max (≈, från valda kurvor)</span><span class="mono" id="maxTime">—</span></div>
+      <div class="pillGrid">
+        <div class="pill"><span>Max clear-sky (daily)</span><span class="mono" id="maxClear">—</span></div>
+        <div class="pill"><span>Max all-sky (daily)</span><span class="mono" id="maxAll">—</span></div>
+        <div class="pill"><span>Geometri max (kurva)</span><span class="mono" id="maxGeo">—</span></div>
+        <div class="pill"><span>K (effektiv)</span><span class="mono" id="kEff">—</span></div>
+        <div class="pill"><span>Skalning (scale)</span><span class="mono" id="scaleShow">—</span></div>
+        <div class="pill"><span>Tid för max (≈, valda)</span><span class="mono" id="maxTime">—</span></div>
+      </div>
     </section>
 
     <section class="panel">
@@ -271,6 +283,9 @@
   const tzShow = el("tzShow");
   const maxClear = el("maxClear");
   const maxAll = el("maxAll");
+  const maxGeo = el("maxGeo");
+  const kEff = el("kEff");
+  const scaleShow = el("scaleShow");
   const maxTime = el("maxTime");
   const status = el("status");
 
@@ -446,16 +461,8 @@
     const url = new URL("https://api.open-meteo.com/v1/forecast");
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lon));
-
-    // 3 curves source:
-    // - hourly uv_index (all-sky)
-    // - hourly uv_index_clear_sky
-    // - geometry is computed locally
     url.searchParams.set("hourly", "uv_index,uv_index_clear_sky");
-
-    // daily max for both
     url.searchParams.set("daily", "uv_index_max,uv_index_clear_sky_max");
-
     url.searchParams.set("timezone", "auto");
     url.searchParams.set("timeformat", "unixtime");
     url.searchParams.set("start_date", ymd);
@@ -537,7 +544,6 @@
       const { tzName, offsetSec, xsSec, uvAll, uvClear, dailyMaxAll, dailyMaxClear } =
         await fetchOpenMeteo(state.lat, state.lon, ymd);
 
-      // Build UTC timeline for local 07:00–19:00 at location:
       const [yy, mm, dd] = ymd.split("-").map(Number);
       const startUtcSec = Math.floor(Date.UTC(yy, mm-1, dd, START_H, 0, 0) / 1000) - offsetSec;
       const endUtcSec   = Math.floor(Date.UTC(yy, mm-1, dd, END_H,   0, 0) / 1000) - offsetSec;
@@ -545,10 +551,11 @@
       const timesH = [];
       const series = { clear: [], all: [], geo: [] };
 
-      let K = Number(kRange.value);
+      const Kuser = Number(kRange.value);
       const n = Number(nRange.value);
       const tzHours = offsetSec / 3600;
 
+      // 1) Build clear + all and base-geo (with Kuser)
       for (let t = startUtcSec; t <= endUtcSec; t += stepMin * 60) {
         const localH = localHoursFromUtcSec(t, offsetSec);
         timesH.push(localH);
@@ -560,42 +567,48 @@
         series.all.push(Math.max(0, a));
 
         const elev = solarElevationDeg(localH, state.lat, state.lon, tzHours, yy, mm, dd);
-        series.geo.push(Math.max(0, uvFromElevation(elev, K, n)));
+        series.geo.push(Math.max(0, uvFromElevation(elev, Kuser, n)));
       }
 
-      // Optional: auto-calibrate K to match geometry peak to clear-sky peak
-      if (autoK.checked) {
-        const targetPeak = (typeof dailyMaxClear === "number" && Number.isFinite(dailyMaxClear))
-          ? dailyMaxClear
-          : Math.max(...series.clear);
+      // 2) Compute peaks for scaling
+      const clearPeak = (typeof dailyMaxClear === "number" && Number.isFinite(dailyMaxClear))
+        ? dailyMaxClear
+        : Math.max(...series.clear);
 
-        const geoPeak = Math.max(...series.geo);
-        if (geoPeak > 0 && Number.isFinite(targetPeak) && targetPeak > 0) {
-          const factor = targetPeak / geoPeak;
-          K = K * factor;
+      const geoPeakBase = Math.max(...series.geo);
 
-          series.geo = [];
-          for (let i=0;i<timesH.length;i++){
-            const localH = timesH[i];
-            const elev = solarElevationDeg(localH, state.lat, state.lon, tzHours, yy, mm, dd);
-            series.geo.push(Math.max(0, uvFromElevation(elev, K, n)));
-          }
+      let scale = null;
+      let Keffective = Kuser;
 
-          // show effective K within slider bounds
-          const clampedK = Math.max(Number(kRange.min), Math.min(Number(kRange.max), K));
-          kRange.value = String(clampedK);
-          kVal.textContent = Number(kRange.value).toFixed(1);
+      if (autoK.checked && geoPeakBase > 0 && Number.isFinite(clearPeak) && clearPeak > 0) {
+        scale = clearPeak / geoPeakBase;
+        Keffective = Kuser * scale;
+
+        // rebuild geo with Keffective
+        series.geo = [];
+        for (let i=0;i<timesH.length;i++){
+          const localH = timesH[i];
+          const elev = solarElevationDeg(localH, state.lat, state.lon, tzHours, yy, mm, dd);
+          series.geo.push(Math.max(0, uvFromElevation(elev, Keffective, n)));
         }
       }
 
-      // Display max values (daily if available)
-      const hasDailyClear = (typeof dailyMaxClear === "number" && Number.isFinite(dailyMaxClear));
-      const hasDailyAll = (typeof dailyMaxAll === "number" && Number.isFinite(dailyMaxAll));
+      // UI: show max values and calibration info
+      latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
+      tzShow.textContent = tzName;
 
-      maxClear.textContent = (hasDailyClear ? dailyMaxClear : Math.max(...series.clear)).toFixed(1);
-      maxAll.textContent = (hasDailyAll ? dailyMaxAll : Math.max(...series.all)).toFixed(1);
+      const allPeak = (typeof dailyMaxAll === "number" && Number.isFinite(dailyMaxAll))
+        ? dailyMaxAll
+        : Math.max(...series.all);
 
-      // Time-of-max: choose max among enabled curves, based on our sampled curves
+      maxClear.textContent = clearPeak.toFixed(1);
+      maxAll.textContent = allPeak.toFixed(1);
+      maxGeo.textContent = Math.max(...series.geo).toFixed(1);
+
+      kEff.textContent = Keffective.toFixed(2);
+      scaleShow.textContent = (scale === null) ? "—" : scale.toFixed(3);
+
+      // Time-of-max among enabled curves (approx, from sampled series)
       let bestIdx = 0, bestVal = -1;
       for (let i=0;i<timesH.length;i++){
         const candidates = [];
@@ -607,10 +620,6 @@
       }
       const tBestUtcSec = startUtcSec + bestIdx * stepMin * 60;
       maxTime.textContent = fmtLocalHHMMFromUtcSec(tBestUtcSec, offsetSec);
-
-      // UI
-      latLon.textContent = `${state.lat.toFixed(4)}, ${state.lon.toFixed(4)}`;
-      tzShow.textContent = tzName;
 
       drawAll(timesH, series);
       setStatus(`Ritad (${stepMin} min).`);
@@ -639,6 +648,7 @@
 
   geoBtn.addEventListener("click", requestGeo);
   redrawBtn.addEventListener("click", redraw);
+
   [dateInput, stepInput, showClear, showGeo, showAll, kRange, nRange, autoK]
     .forEach(x => x.addEventListener("input", redraw));
 
